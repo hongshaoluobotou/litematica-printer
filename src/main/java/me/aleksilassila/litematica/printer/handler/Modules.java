@@ -6,6 +6,7 @@ import me.aleksilassila.litematica.printer.handler.handlers.FillHandler;
 import me.aleksilassila.litematica.printer.handler.handlers.FluidHandler;
 import me.aleksilassila.litematica.printer.handler.handlers.GuiHandler;
 import me.aleksilassila.litematica.printer.handler.handlers.MineHandler;
+import me.aleksilassila.litematica.printer.handler.handlers.BeddingHandler;
 import me.aleksilassila.litematica.printer.handler.handlers.PrintHandler;
 
 public final class Modules {
@@ -15,9 +16,10 @@ public final class Modules {
     public static final MineHandler MINE = new MineHandler();
     public static final FluidHandler FLUID = new FluidHandler();
     public static final BedrockHandler BEDROCK = new BedrockHandler();
+    public static final BeddingHandler BEDDING = new BeddingHandler();
 
     public static final ImmutableList<Module> VALUES = ImmutableList.of(
-            GUI, MINE, FLUID, PRINT, FILL, BEDROCK
+            GUI, MINE, FLUID, PRINT, FILL, BEDROCK, BEDDING
     );
 
     private Modules() {

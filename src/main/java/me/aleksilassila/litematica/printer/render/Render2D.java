@@ -273,6 +273,7 @@ public class Render2D {
         appendCommonModeLines(lines, HudStatsManager.Mode.MINE, getModeDisplayName(HudStatsManager.Mode.MINE), ConfigUtils.isMineMode());
         appendCommonModeLines(lines, HudStatsManager.Mode.FILL, getModeDisplayName(HudStatsManager.Mode.FILL), ConfigUtils.isFillMode());
         appendCommonModeLines(lines, HudStatsManager.Mode.FLUID, getModeDisplayName(HudStatsManager.Mode.FLUID), ConfigUtils.isFluidMode());
+        appendCommonModeLines(lines, HudStatsManager.Mode.BEDDING, getModeDisplayName(HudStatsManager.Mode.BEDDING), ConfigUtils.isBeddingMode());
         appendBedrockLines(lines, ConfigUtils.isBedrockMode());
         return lines;
     }
@@ -363,6 +364,9 @@ public class Render2D {
         if (ConfigUtils.isFluidMode()) {
             names.add(getModeDisplayName(HudStatsManager.Mode.FLUID));
         }
+        if (ConfigUtils.isBeddingMode()) {
+            names.add(getModeDisplayName(HudStatsManager.Mode.BEDDING));
+        }
         if (ConfigUtils.isBedrockMode()) {
             names.add(getModeDisplayName(HudStatsManager.Mode.BEDROCK));
         }
@@ -376,6 +380,7 @@ public class Render2D {
             case FILL -> "填充";
             case FLUID -> "排流体";
             case BEDROCK -> "破基岩";
+            case BEDDING -> "铺盖";
             case TOTAL -> "总计";
         };
     }
@@ -423,20 +428,21 @@ public class Render2D {
         return mode == HudStatsManager.Mode.PRINT
                 || mode == HudStatsManager.Mode.MINE
                 || mode == HudStatsManager.Mode.FILL
-                || mode == HudStatsManager.Mode.FLUID;
+                || mode == HudStatsManager.Mode.FLUID
+                || mode == HudStatsManager.Mode.BEDDING;
     }
 
     private double getDisplayedModeRate(HudStatsManager.Mode mode, HudStatsManager.Snapshot snapshot) {
         return switch (mode) {
             case PRINT -> snapshot.completedRatePerSecond();
-            case MINE, FILL, FLUID -> snapshot.completedRatePerSecond();
+            case MINE, FILL, FLUID, BEDDING -> snapshot.completedRatePerSecond();
             default -> 0.0D;
         };
     }
 
     private String getModeRateLabel(HudStatsManager.Mode mode) {
         return switch (mode) {
-            case PRINT, FILL, FLUID -> "放置";
+            case PRINT, FILL, FLUID, BEDDING -> "放置";
             case MINE -> "破坏";
             case BEDROCK -> "成功";
             case TOTAL -> "速率";
@@ -450,6 +456,7 @@ public class Render2D {
             case FILL -> Modules.FILL;
             case FLUID -> Modules.FLUID;
             case BEDROCK -> Modules.BEDROCK;
+            case BEDDING -> Modules.BEDDING;
             case TOTAL -> null;
         };
     }
@@ -516,7 +523,7 @@ public class Render2D {
 
     private String formatModeSettings(HudStatsManager.Mode mode) {
         return switch (mode) {
-            case PRINT, FILL, FLUID -> Configs.Placement.PLACE_BLOCKS_PER_TICK.getIntegerValue()
+            case PRINT, FILL, FLUID, BEDDING -> Configs.Placement.PLACE_BLOCKS_PER_TICK.getIntegerValue()
                     + "/t 间隔" + Configs.Placement.PLACE_INTERVAL.getIntegerValue();
             case MINE -> (Configs.Break.BREAK_BLOCKS_PER_TICK.getIntegerValue() == 0
                     ? "不限速"

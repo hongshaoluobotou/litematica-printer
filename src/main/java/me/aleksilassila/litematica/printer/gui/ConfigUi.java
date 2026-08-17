@@ -91,6 +91,7 @@ public class ConfigUi extends GuiConfigsBase {
         EXCAVATE(I18n.of("category.mine")),
         FILL(I18n.of("category.fill")),
         FLUID(I18n.of("category.fluid")),
+        BEDDING(I18n.of("category.bedding")),
         BEDROCK(I18n.of("category.bedrock"));
 
         private final I18n i18n;
@@ -118,6 +119,7 @@ public class ConfigUi extends GuiConfigsBase {
                 case EXCAVATE -> Configs.Mine.OPTIONS;
                 case FILL -> Configs.Fill.OPTIONS;
                 case FLUID -> Configs.Fluid.OPTIONS;
+                case BEDDING -> Configs.Bedding.OPTIONS;
                 case HOTKEYS -> Configs.Hotkeys.OPTIONS;
             };
         }

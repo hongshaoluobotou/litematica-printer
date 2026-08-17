@@ -22,6 +22,7 @@ public final class HudStatsManager {
     private final Map<BlockPos, Long> pendingMineTargets = new LinkedHashMap<>();
     private final Map<BlockPos, PendingStateChange> pendingFillTargets = new LinkedHashMap<>();
     private final Map<BlockPos, PendingStateChange> pendingFluidTargets = new LinkedHashMap<>();
+    private final Map<BlockPos, PendingStateChange> pendingBeddingTargets = new LinkedHashMap<>();
     private long lastFallbackFlushTick = Long.MIN_VALUE;
 
     private HudStatsManager() {
@@ -35,6 +36,7 @@ public final class HudStatsManager {
         this.pendingMineTargets.clear();
         this.pendingFillTargets.clear();
         this.pendingFluidTargets.clear();
+        this.pendingBeddingTargets.clear();
         for (Mode mode : Mode.values()) {
             this.resetMode(mode);
         }
@@ -46,6 +48,7 @@ public final class HudStatsManager {
             case MINE -> this.pendingMineTargets.clear();
             case FILL -> this.pendingFillTargets.clear();
             case FLUID -> this.pendingFluidTargets.clear();
+            case BEDDING -> this.pendingBeddingTargets.clear();
             default -> {
             }
         }
@@ -115,6 +118,8 @@ public final class HudStatsManager {
             this.pendingFillTargets.put(pos.immutable(), pending);
         } else if (mode == Mode.FLUID) {
             this.pendingFluidTargets.put(pos.immutable(), pending);
+        } else if (mode == Mode.BEDDING) {
+            this.pendingBeddingTargets.put(pos.immutable(), pending);
         }
     }
 
@@ -179,6 +184,7 @@ public final class HudStatsManager {
         flushConfirmedMineClears(client, now, maxChecksPerMode);
         flushConfirmedBlockChanges(client, now, Mode.FILL, this.pendingFillTargets, maxChecksPerMode);
         flushConfirmedBlockChanges(client, now, Mode.FLUID, this.pendingFluidTargets, maxChecksPerMode);
+        flushConfirmedBlockChanges(client, now, Mode.BEDDING, this.pendingBeddingTargets, maxChecksPerMode);
     }
 
     private void flushConfirmedPrintPlacements(Minecraft client, long now, int maxChecks) {
@@ -260,7 +266,8 @@ public final class HudStatsManager {
         MINE,
         FILL,
         FLUID,
-        BEDROCK
+        BEDROCK,
+        BEDDING
     }
 
     public record Snapshot(

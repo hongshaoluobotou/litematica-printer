@@ -66,6 +66,13 @@ public class ConfigUtils {
         return Configs.Core.WORK_MODE_TYPE.getOptionListValue() == PrintModeType.BEDROCK;
     }
 
+    public static boolean isBeddingMode() {
+        if (isMultiMode()) {
+            return Configs.Core.BEDDING.getBooleanValue();
+        }
+        return Configs.Core.WORK_MODE_TYPE.getOptionListValue() == PrintModeType.BEDDING;
+    }
+
     public static PrintModeType getPrintModeType() {
         return (PrintModeType) Configs.Core.WORK_MODE_TYPE.getOptionListValue();
     }

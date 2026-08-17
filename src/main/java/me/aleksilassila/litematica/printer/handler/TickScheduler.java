@@ -176,6 +176,7 @@ final class TickScheduler {
         result = 31 * result + Boolean.hashCode(Configs.Core.MINE.getBooleanValue());
         result = 31 * result + Boolean.hashCode(Configs.Core.FILL.getBooleanValue());
         result = 31 * result + Boolean.hashCode(Configs.Core.FLUID.getBooleanValue());
+        result = 31 * result + Boolean.hashCode(Configs.Core.BEDDING.getBooleanValue());
         result = 31 * result + Boolean.hashCode(Configs.Hotkeys.BEDROCK.getBooleanValue());
         return result;
     }

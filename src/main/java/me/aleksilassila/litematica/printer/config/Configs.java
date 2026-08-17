@@ -63,6 +63,7 @@ public class Configs extends ConfigBuilders implements IConfigHandler {
         optionSet.addAll(Fill.OPTIONS);           // 填充
         optionSet.addAll(Fluid.OPTIONS);          // 排流体
         optionSet.addAll(Bedrock.OPTIONS);        // 破基岩
+        optionSet.addAll(Bedding.OPTIONS);           // 防刷怪面
         OPTIONS = ImmutableList.copyOf(optionSet);
 
         List<IHotkey> hotkeys = new ArrayList<>();
@@ -107,6 +108,12 @@ public class Configs extends ConfigBuilders implements IConfigHandler {
 
         // 多模 - 排流体
         public static final ConfigBooleanHotkeyed FLUID = booleanHotkey("fluid")
+                .defaultValue(false)
+                .setVisible(isMulti) // 仅多模式时显示
+                .build();
+
+        // 多模 - 铺盖
+        public static final ConfigBooleanHotkeyed BEDDING = booleanHotkey("bedding")
                 .defaultValue(false)
                 .setVisible(isMulti) // 仅多模式时显示
                 .build();
@@ -196,6 +203,7 @@ public class Configs extends ConfigBuilders implements IConfigHandler {
                 MINE,
                 FILL,
                 FLUID,
+                BEDDING,
                 WORK_RANGE,
                 SCAN_TIME_BUDGET_MS,
                 LAZY_ENTER_TICKS,
@@ -398,6 +406,55 @@ public class Configs extends ConfigBuilders implements IConfigHandler {
                 BEDROCK_BLOCKS_PER_TICK,
                 BEDROCK_ALLOW_SIDE,
                 BEDROCK_WHITELIST
+        );
+    }
+
+    public static class Bedding {
+        // 选区类型
+        public static final ConfigOptionList BEDDING_SELECTION_TYPE = optionList("beddingSelectionType")
+                .defaultValue(SelectionType.LITEMATICA_SELECTION)
+                .build();
+
+        // 铺盖方块模式
+        public static final ConfigOptionList BEDDING_BLOCK_MODE = optionList("beddingBlockMode")
+                .defaultValue(FillBlockModeType.BLOCKLIST)
+                .build();
+
+        // 源方块名单
+        public static final ConfigStringList BEDDING_SOURCE_BLOCK_LIST = stringList("beddingBlockSourceList")
+                .defaultValue(
+                        Blocks.NETHERRACK,
+                        Blocks.NETHER_BRICKS,
+                        Blocks.NETHER_GOLD_ORE,
+                        Blocks.NETHER_QUARTZ_ORE
+                )
+                .setVisible(isBlocklist)
+                .build();
+
+        // 覆盖方块名单
+        public static final ConfigStringList BEDDING_BLOCK_LIST = stringList("beddingBlockList")
+                .defaultValue(
+                        Blocks.RAIL,
+                        Blocks.POWERED_RAIL,
+                        Blocks.COBBLED_DEEPSLATE_SLAB,
+                        Blocks.STONE_SLAB,
+                        Blocks.SMOOTH_STONE_SLAB,
+                        Blocks.GLASS,
+                        Blocks.GLASS
+                )
+                .build();
+
+        // 模式朝向
+        public static final ConfigOptionList BEDDING_BLOCK_FACING = optionList("beddingBlockFacing")
+                .defaultValue(FillModeFacingType.NONE)
+                .build();
+
+        public static final ImmutableList<IConfigBase> OPTIONS = ImmutableList.of(
+                BEDDING_SELECTION_TYPE,       // 铺盖 - 选区类型
+                BEDDING_BLOCK_MODE,           // 铺盖 - 填充方块模式
+                BEDDING_SOURCE_BLOCK_LIST,    // 铺盖 - 源方块名单
+                BEDDING_BLOCK_LIST,           // 铺盖 - 填充方块名单
+                BEDDING_BLOCK_FACING          // 铺盖 - 填充朝向名单
         );
     }
 
@@ -695,6 +752,7 @@ public class Configs extends ConfigBuilders implements IConfigHandler {
                 Core.MINE,                // 挖掘
                 Core.FILL,                    // 填充
                 Core.FLUID,                  // 排流体
+                Core.BEDDING,                    // 防刷怪面
                 BEDROCK                       // 破基岩
         );
     }
