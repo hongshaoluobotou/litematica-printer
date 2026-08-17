@@ -61,7 +61,7 @@ public class BeddingHandler extends Module {
     private int observedBeddingScanConfigHash = Integer.MIN_VALUE;
 
     public BeddingHandler() {
-        super(NAME, PrintModeType.FILL, Configs.Core.BEDDING, Configs.Bedding.BEDDING_SELECTION_TYPE, true);
+        super(NAME, PrintModeType.BEDDING, Configs.Core.BEDDING, Configs.Bedding.BEDDING_SELECTION_TYPE, true);
     }
 
     @Override
