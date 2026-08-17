@@ -2,6 +2,7 @@ package me.aleksilassila.litematica.printer.handler.handlers;
 
 import lombok.Getter;
 import me.aleksilassila.litematica.printer.config.Configs;
+import me.aleksilassila.litematica.printer.enums.BeddingSourceModeType;
 import me.aleksilassila.litematica.printer.enums.FillBlockModeType;
 import me.aleksilassila.litematica.printer.enums.FillModeFacingType;
 import me.aleksilassila.litematica.printer.enums.PrintModeType;
@@ -26,6 +27,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.FallingBlock;
 import net.minecraft.world.level.block.LiquidBlock;
 import net.minecraft.world.level.block.state.BlockState;
@@ -33,9 +35,11 @@ import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 
@@ -59,6 +63,10 @@ public class BeddingHandler extends Module {
     private List<PrinterBox> beddingScanBoxes = List.of();
     private int beddingScanConfigHash;
     private int observedBeddingScanConfigHash = Integer.MIN_VALUE;
+    private BeddingSourceModeType currentSourceMode = BeddingSourceModeType.CUSTOM;
+    private Set<Block> dynamicSpawnableBlocks = Set.of();
+    private Set<Block> dynamicNotSpawnableBlocks = Set.of();
+    private int dynamicScanBoxHash = Integer.MIN_VALUE;
 
     public BeddingHandler() {
         super(NAME, PrintModeType.BEDDING, Configs.Core.BEDDING, Configs.Bedding.BEDDING_SELECTION_TYPE, true);
@@ -76,7 +84,7 @@ public class BeddingHandler extends Module {
 
     @Override
     protected void preprocess() {
-        this.updateSourceFilterCache();
+        this.refreshActiveSourceFilters();
         FillBlockModeType mode = (FillBlockModeType) Configs.Bedding.BEDDING_BLOCK_MODE.getOptionListValue();
         switch (mode) {
             case BLOCKLIST:
@@ -123,18 +131,74 @@ public class BeddingHandler extends Module {
         this.observedBeddingScanConfigHash = Integer.MIN_VALUE;
     }
 
-    private void updateSourceFilterCache() {
-        List<String> sourceList = Configs.Bedding.BEDDING_SOURCE_BLOCK_LIST.getStrings();
-        if (sourceList.equals(this.sourceCacheBlocklist)) {
+    private void refreshActiveSourceFilters() {
+        BeddingSourceModeType mode = (BeddingSourceModeType) Configs.Bedding.BEDDING_SOURCE_BLOCK_MODE.getOptionListValue();
+        boolean modeChanged = mode != this.currentSourceMode;
+        this.currentSourceMode = mode;
+
+        if (mode == BeddingSourceModeType.CUSTOM) {
+            List<String> sourceList = Configs.Bedding.BEDDING_SOURCE_BLOCK_LIST.getStrings();
+            if (sourceList.equals(this.sourceCacheBlocklist)) {
+                return;
+            }
+            this.sourceCacheBlocklist = new ArrayList<>(sourceList);
+            this.sourceFilters = this.sourceCacheBlocklist.toArray(new String[0]);
+        } else {
+            if (!modeChanged && this.dynamicScanBoxHash == this.beddingScanBoxHash()) {
+                return;
+            }
+            this.sourceFilters = new String[]{"__dynamic__"};
+            if (this.beddingScanBox != null) {
+                this.scanDynamicBlocks();
+            } else {
+                this.dynamicSpawnableBlocks = Set.of();
+                this.dynamicNotSpawnableBlocks = Set.of();
+//                System.out.println("debug: beddingScanBox is null, dynamicSpawnableBlocks=" + dynamicSpawnableBlocks);
+//                System.out.println("debug: beddingScanBox is null, dynamicNotSpawnableBlocks=" + dynamicNotSpawnableBlocks);
+            }
+        }
+    }
+
+    private int beddingScanBoxHash() {
+        if (this.beddingScanBox == null) return Integer.MIN_VALUE;
+        return Arrays.hashCode(new int[]{
+                this.beddingScanBox.minX, this.beddingScanBox.minY, this.beddingScanBox.minZ,
+                this.beddingScanBox.maxX, this.beddingScanBox.maxY, this.beddingScanBox.maxZ
+        });
+    }
+
+    private void scanDynamicBlocks() {
+        if (this.level == null || this.beddingScanBox == null) {
+            this.dynamicSpawnableBlocks = Set.of();
+            this.dynamicNotSpawnableBlocks = Set.of();
+            this.dynamicScanBoxHash = this.beddingScanBoxHash();
             return;
         }
-        this.sourceCacheBlocklist = new ArrayList<>(sourceList);
-        this.sourceFilters = this.sourceCacheBlocklist.toArray(new String[0]);
+        Set<Block> spawnable = new HashSet<>();
+        Set<Block> notSpawnable = new HashSet<>();
+        BlockPos.betweenClosed(
+                this.beddingScanBox.minX, this.beddingScanBox.minY, this.beddingScanBox.minZ,
+                this.beddingScanBox.maxX, this.beddingScanBox.maxY, this.beddingScanBox.maxZ
+        ).forEach(pos -> {
+            Block block = this.level.getBlockState(pos).getBlock();
+            if (BlockUtils.isMobSpawnGround(this.level, pos)) {
+                spawnable.add(block);
+            } else {
+                notSpawnable.add(block);
+            }
+        });
+        this.dynamicSpawnableBlocks = spawnable;
+        this.dynamicNotSpawnableBlocks = notSpawnable;
+        this.dynamicScanBoxHash = this.beddingScanBoxHash();
+        HudStatsManager.INSTANCE.recordStatus(
+                HudStatsManager.Mode.BEDDING,
+                "动态扫描: " + spawnable.size() + " 可刷生 / " + notSpawnable.size() + " 不可刷生"
+        );
     }
 
     @Override
     protected boolean canIterate() {
-        return beddingModeItemList.length > 0 && sourceFilters.length > 0;
+        return beddingModeItemList.length > 0 && this.sourceFilters.length > 0;
     }
 
     @Override
@@ -170,6 +234,11 @@ public class BeddingHandler extends Module {
                 || !this.beddingScanBoxes.equals(fullScanSourceBoxes)) {
             this.beddingScanBox = this.copyScanBox(fullScanSourceBox);
             this.beddingScanBoxes = List.copyOf(fullScanSourceBoxes);
+        }
+
+        if (this.currentSourceMode != BeddingSourceModeType.CUSTOM
+                && this.dynamicScanBoxHash != this.beddingScanBoxHash()) {
+            this.scanDynamicBlocks();
         }
 
         Predicate<BlockPos> selectionPredicate = this.createSelectionRangePredicate();
@@ -269,6 +338,7 @@ public class BeddingHandler extends Module {
         result = 31 * result + Boolean.hashCode(Configs.Print.PLACE_IN_AIR.getBooleanValue());
         result = 31 * result + Configs.Bedding.BEDDING_BLOCK_FACING.getOptionListValue().hashCode();
         result = 31 * result + Boolean.hashCode(Configs.Core.CHECK_PLAYER_INTERACTION_RANGE.getBooleanValue());
+        result = 31 * result + Configs.Bedding.BEDDING_SOURCE_BLOCK_MODE.getOptionListValue().hashCode();
         return result;
     }
 
@@ -431,6 +501,13 @@ public class BeddingHandler extends Module {
     private boolean isBeddingSource(BlockState state) {
         if (this.sourceFilters.length == 0) {
             return false;
+        }
+        Block block = state.getBlock();
+        if (this.currentSourceMode == BeddingSourceModeType.MOB_SPAWNABLE) {
+            return this.dynamicSpawnableBlocks.contains(block);
+        }
+        if (this.currentSourceMode == BeddingSourceModeType.MOB_NOT_SPAWNABLE) {
+            return this.dynamicNotSpawnableBlocks.contains(block);
         }
         for (String filter : this.sourceFilters) {
             if (FilterUtils.matchName(filter, state)) {

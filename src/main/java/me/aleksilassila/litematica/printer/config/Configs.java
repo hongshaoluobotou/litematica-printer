@@ -63,7 +63,7 @@ public class Configs extends ConfigBuilders implements IConfigHandler {
         optionSet.addAll(Fill.OPTIONS);           // 填充
         optionSet.addAll(Fluid.OPTIONS);          // 排流体
         optionSet.addAll(Bedrock.OPTIONS);        // 破基岩
-        optionSet.addAll(Bedding.OPTIONS);           // 防刷怪面
+        optionSet.addAll(Bedding.OPTIONS);        // 铺盖
         OPTIONS = ImmutableList.copyOf(optionSet);
 
         List<IHotkey> hotkeys = new ArrayList<>();
@@ -420,6 +420,12 @@ public class Configs extends ConfigBuilders implements IConfigHandler {
                 .defaultValue(FillBlockModeType.BLOCKLIST)
                 .build();
 
+        // 源方块模式
+        public static final ConfigOptionList BEDDING_SOURCE_BLOCK_MODE = optionList("beddingBlockSourceMode")
+                .defaultValue(BeddingSourceModeType.CUSTOM)
+                .setVisible(isBlocklist)
+                .build();
+
         // 源方块名单
         public static final ConfigStringList BEDDING_SOURCE_BLOCK_LIST = stringList("beddingBlockSourceList")
                 .defaultValue(
@@ -439,7 +445,6 @@ public class Configs extends ConfigBuilders implements IConfigHandler {
                         Blocks.COBBLED_DEEPSLATE_SLAB,
                         Blocks.STONE_SLAB,
                         Blocks.SMOOTH_STONE_SLAB,
-                        Blocks.GLASS,
                         Blocks.GLASS
                 )
                 .build();
@@ -451,8 +456,9 @@ public class Configs extends ConfigBuilders implements IConfigHandler {
 
         public static final ImmutableList<IConfigBase> OPTIONS = ImmutableList.of(
                 BEDDING_SELECTION_TYPE,       // 铺盖 - 选区类型
-                BEDDING_BLOCK_MODE,           // 铺盖 - 填充方块模式
+                BEDDING_SOURCE_BLOCK_MODE,    // 铺盖 - 源方块模式
                 BEDDING_SOURCE_BLOCK_LIST,    // 铺盖 - 源方块名单
+                BEDDING_BLOCK_MODE,           // 铺盖 - 填充方块模式
                 BEDDING_BLOCK_LIST,           // 铺盖 - 填充方块名单
                 BEDDING_BLOCK_FACING          // 铺盖 - 填充朝向名单
         );
@@ -748,12 +754,12 @@ public class Configs extends ConfigBuilders implements IConfigHandler {
                 SWITCH_PRINTER_MODE,          // 切换模式
 
                 // 多模
-                Core.PRINT,
-                Core.MINE,                // 挖掘
-                Core.FILL,                    // 填充
-                Core.FLUID,                  // 排流体
-                Core.BEDDING,                    // 防刷怪面
-                BEDROCK                       // 破基岩
+                Core.PRINT,     //打印
+                Core.MINE,      // 挖掘
+                Core.FILL,      // 填充
+                Core.FLUID,     // 排流体
+                Core.BEDDING,   // 铺盖
+                BEDROCK         // 破基岩
         );
     }
 
