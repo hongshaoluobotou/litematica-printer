@@ -208,7 +208,7 @@ public class BeddingHandler extends Module {
      *   <li>CUSTOM：编译 BEDDING_SOURCE_BLOCK_LIST。</li>
      *   <li>动态模式：必要时扫描 box 内方块，结果写 {@link #dynamicSpawnableBlocks}
      *       / {@link #dynamicNotSpawnableBlocks}；实际匹配由 {@link #isBeddingSource(BlockPos)} 现场完成。
-     *       是否就绪通过 {@link #dynamicFiltersReady} 显式表达，不再使用哨兵。</li>
+     *       是否就绪通过 {@link #dynamicFiltersReady} 显式表达，由 {@link #scanDynamicBlocks} 内部统一维护。</li>
      * </ul>
      */
     private void refreshActiveSourceFilters() {
@@ -225,29 +225,31 @@ public class BeddingHandler extends Module {
             this.sourceFilters = this.sourceCacheBlocklist.toArray(new String[0]);
             this.dynamicFiltersReady = false;
         } else {
-            // 动态模式：模式与 box 都未变则跳过，避免重扫
-            if (!modeChanged && this.dynamicScanBoxHash == this.beddingScanBoxHash()) {
+            // 动态模式：mode/box/dynamicScanBoxHash 三者与上次一致才算命中缓存。
+            // beddingScanBox==null 或 dynamicScanBoxHash==MIN_VALUE 视为未扫过，必须扫。
+            if (!modeChanged
+                    && this.beddingScanBox != null
+                    && this.dynamicScanBoxHash != Integer.MIN_VALUE
+                    && this.dynamicScanBoxHash == this.beddingScanBoxHash()) {
                 return;
             }
             this.sourceFilters = new String[0];
-            if (this.beddingScanBox != null) {
-                this.scanDynamicBlocks();
-                this.dynamicFiltersReady = !this.dynamicSpawnableBlocks.isEmpty()
-                        || !this.dynamicNotSpawnableBlocks.isEmpty();
-            } else {
-                this.dynamicSpawnableBlocks = Set.of();
-                this.dynamicNotSpawnableBlocks = Set.of();
-                this.dynamicFiltersReady = false;
-            }
+            this.scanDynamicBlocks();
         }
     }
 
     /** 扫描盒哈希（用于检测 box 变化）。 */
     private int beddingScanBoxHash() {
         if (this.beddingScanBox == null) return Integer.MIN_VALUE;
+        return scanBoxHash(this.beddingScanBox);
+    }
+
+    /** 给定 box 的哈希（独立工具方法，便于在非 beddingScanBox 场景下复用）。 */
+    private static int scanBoxHash(PrinterBox box) {
+        if (box == null) return Integer.MIN_VALUE;
         return Arrays.hashCode(new int[]{
-                this.beddingScanBox.minX, this.beddingScanBox.minY, this.beddingScanBox.minZ,
-                this.beddingScanBox.maxX, this.beddingScanBox.maxY, this.beddingScanBox.maxZ
+                box.minX, box.minY, box.minZ,
+                box.maxX, box.maxY, box.maxZ
         });
     }
 
@@ -255,19 +257,29 @@ public class BeddingHandler extends Module {
      * 对 box 内方块按 {@code isValidSpawn} 二分类，填入 dynamic set。
      * 扫描粒度为 {@link Block}（同 Block 的上半砖/下半砖共享实例），
      * 精确判定在 {@link #isBeddingSource(BlockPos)} 中现场完成。
+     *
+     * <p>box 优先取 {@link #beddingScanBox}；若为 null（例如刚进存档、
+     * 玩家 box 尚未建立），回退到 {@link #playerInteractionBox}，保证
+     * preprocess 与 canIterate 之间的扫描链路不会因 box 未就绪而死锁。
+     * {@link #dynamicFiltersReady} 由本方法统一维护。
      */
     private void scanDynamicBlocks() {
-        if (this.level == null || this.beddingScanBox == null) {
+        PrinterBox box = this.beddingScanBox;
+        if (box == null && this.playerInteractionBox != null) {
+            box = this.playerInteractionBox.get();
+        }
+        if (this.level == null || box == null) {
             this.dynamicSpawnableBlocks = Set.of();
             this.dynamicNotSpawnableBlocks = Set.of();
-            this.dynamicScanBoxHash = this.beddingScanBoxHash();
+            this.dynamicScanBoxHash = Integer.MIN_VALUE;
+            this.dynamicFiltersReady = false;
             return;
         }
         Set<Block> spawnable = new HashSet<>();
         Set<Block> notSpawnable = new HashSet<>();
         BlockPos.betweenClosed(
-                this.beddingScanBox.minX, this.beddingScanBox.minY, this.beddingScanBox.minZ,
-                this.beddingScanBox.maxX, this.beddingScanBox.maxY, this.beddingScanBox.maxZ
+                box.minX, box.minY, box.minZ,
+                box.maxX, box.maxY, box.maxZ
         ).forEach(pos -> {
             // 排除上方已有方块（液体除外）的列：它们已是完成态，不应纳入源集。
             BlockState aboveState = this.level.getBlockState(pos.above());
@@ -283,7 +295,8 @@ public class BeddingHandler extends Module {
         });
         this.dynamicSpawnableBlocks = spawnable;
         this.dynamicNotSpawnableBlocks = notSpawnable;
-        this.dynamicScanBoxHash = this.beddingScanBoxHash();
+        this.dynamicScanBoxHash = scanBoxHash(box);
+        this.dynamicFiltersReady = !spawnable.isEmpty() || !notSpawnable.isEmpty();
         HudStatsManager.INSTANCE.recordStatus(
                 HudStatsManager.Mode.BEDDING,
                 "动态扫描: " + spawnable.size() + " 可刷生 / " + notSpawnable.size() + " 不可刷生"
@@ -357,7 +370,13 @@ public class BeddingHandler extends Module {
 
         if (this.currentSourceMode != BeddingSourceModeType.CUSTOM
                 && this.dynamicScanBoxHash != this.beddingScanBoxHash()) {
-            this.scanDynamicBlocks();
+            // 仅在确实没扫过（hash=MIN_VALUE）或 box 真的变了时才重扫；
+            // 否则在 beddingScanBox==null 场景下会与 refreshActiveSourceFilters 的兜底扫描互踢形成死循环。
+            if (this.dynamicScanBoxHash == Integer.MIN_VALUE
+                    || this.beddingScanBox == null
+                    || this.dynamicScanBoxHash != this.scanBoxHash(this.beddingScanBox)) {
+                this.scanDynamicBlocks();
+            }
         }
 
         Predicate<BlockPos> selectionPredicate = this.createSelectionRangePredicate();
